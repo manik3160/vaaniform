@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react';
 import { Button, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { VoiceTest } from './components/VoiceTest';
+import { FormFiller } from './components/FormFiller';
 import { extractFormSchema } from './lib/schema/extractSchema';
+import { SAMPLE_FORM } from './lib/schema/sampleForm';
 import { FormSchema } from './lib/schema/types';
 
 export default function App() {
@@ -46,7 +47,7 @@ export default function App() {
 
   if (showCamera) {
     return (
-      <View style={styles.container}>
+      <View style={styles.cameraScreen}>
         <CameraView ref={cameraRef} style={styles.camera} facing="back" />
         <Button title="Capture" onPress={takePhoto} />
         <Button title="Cancel" onPress={() => setShowCamera(false)} />
@@ -56,39 +57,24 @@ export default function App() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text>VaaniForm spike</Text>
+      <Text style={styles.heading}>VaaniForm</Text>
 
-      <Button title="Take Photo" onPress={openCamera} />
+      <View style={styles.row}>
+        <Button title="Take Photo" onPress={openCamera} />
+        <Button title="Try sample form" onPress={() => setSchema(SAMPLE_FORM)} />
+      </View>
+
       {photoUri && <Image source={{ uri: photoUri }} style={styles.preview} />}
-
-      <VoiceTest />
-
       {photoUri && (
         <Button
-          title={status === 'loading' ? 'Extracting…' : 'Extract Schema'}
+          title={status === 'loading' ? 'Reading form…' : 'Read this form'}
           onPress={runExtraction}
           disabled={status === 'loading'}
         />
       )}
-
       {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
 
-      {schema && (
-        <View style={styles.schemaBox}>
-          <Text style={styles.schemaTitle}>
-            {schema.title} ({schema.detectedLanguage})
-          </Text>
-          {schema.fields.map((field) => (
-            <Text key={field.id} style={styles.fieldRow}>
-              [{field.type}{field.required ? ', required' : ''}
-              {field.options?.length ? `, ${field.options.join('/')}` : ''}
-              {field.dependsOn ? `, if ${field.dependsOn.fieldId} = ${field.dependsOn.equals}` : ''}]{' '}
-              {field.label}
-              {'\n'}  → "{field.labelSpoken}"
-            </Text>
-          ))}
-        </View>
-      )}
+      {schema && <FormFiller key={schema.id} schema={schema} />}
     </ScrollView>
   );
 }
@@ -98,9 +84,24 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     backgroundColor: '#fff',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 16,
     padding: 16,
+    paddingTop: 72,
+  },
+  cameraScreen: {
+    flex: 1,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+  },
+  heading: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 12,
   },
   camera: {
     width: '100%',
@@ -112,16 +113,5 @@ const styles = StyleSheet.create({
   },
   error: {
     color: 'red',
-  },
-  schemaBox: {
-    width: '100%',
-    gap: 8,
-  },
-  schemaTitle: {
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  fieldRow: {
-    fontSize: 12,
   },
 });
