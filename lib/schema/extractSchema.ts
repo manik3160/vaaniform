@@ -2,7 +2,11 @@ import { File } from 'expo-file-system';
 import { SCHEMA_EXTRACTION_PROMPT } from './prompt';
 import { FormSchema, LlmExtractionSchema } from './types';
 
-const GEMINI_MODEL = 'gemini-3.8-flash';
+// Tried in order; later models are fallbacks when earlier ones are overloaded.
+const GEMINI_MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash'];
+const RETRYABLE_STATUSES = new Set([429, 500, 503]);
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function makeId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -26,30 +30,44 @@ export async function extractFormSchema(photoUri: string): Promise<FormSchema> {
   const file = new File(photoUri);
   const base64 = await file.base64();
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: SCHEMA_EXTRACTION_PROMPT },
-              { inline_data: { mime_type: 'image/jpeg', data: base64 } },
-            ],
-          },
+  const body = JSON.stringify({
+    contents: [
+      {
+        parts: [
+          { text: SCHEMA_EXTRACTION_PROMPT },
+          { inline_data: { mime_type: 'image/jpeg', data: base64 } },
         ],
-        generationConfig: {
-          response_mime_type: 'application/json',
-        },
-      }),
-    }
-  );
+      },
+    ],
+    generationConfig: {
+      response_mime_type: 'application/json',
+    },
+  });
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Gemini API error ${response.status}: ${errText}`);
+  let response: Response | null = null;
+  let lastError = '';
+  outer: for (const model of GEMINI_MODELS) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+          body,
+        }
+      );
+      if (response.ok) break outer;
+
+      lastError = `${model} → ${response.status}: ${await response.text()}`;
+      if (!RETRYABLE_STATUSES.has(response.status)) {
+        throw new Error(`Gemini API error ${lastError}`);
+      }
+      if (attempt === 0) await sleep(1500);
+    }
+  }
+
+  if (!response?.ok) {
+    throw new Error(`All Gemini models are busy right now. Last error: ${lastError}`);
   }
 
   const data = await response.json();
