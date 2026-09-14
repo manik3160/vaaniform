@@ -25,6 +25,24 @@ export const FormFieldSchema = z.object({
     .object({ fieldId: z.string(), equals: z.string() })
     .nullable()
     .optional(),
+  validation: z
+    .object({
+      minLength: z.number().nullish(),
+      maxLength: z.number().nullish(),
+      pattern: z
+        .string()
+        .refine((p) => {
+          try {
+            new RegExp(p);
+            return true;
+          } catch {
+            return false;
+          }
+        }, 'pattern is not a valid regular expression')
+        .nullish(),
+    })
+    .nullable()
+    .optional(),
 });
 export type FormField = z.infer<typeof FormFieldSchema>;
 

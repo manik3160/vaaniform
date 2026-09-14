@@ -13,9 +13,10 @@ schema, with no markdown fences and no explanation:
       "label": string,           // short name for the field, understandable on its own
       "labelSpoken": string,     // a natural spoken question in the form's language
       "type": "text"|"number"|"date"|"choice"|"checkbox"|"name"|"address",
-      "options": string[],       // only for type "choice"
+      "options": string[],       // only for types "choice" and "checkbox"
       "required": boolean,
-      "dependsOn": { "fieldId": string, "equals": string } | null
+      "dependsOn": { "fieldId": string, "equals": string } | null,
+      "validation": { "minLength": number, "maxLength": number, "pattern": string } | null
     }
   ]
 }
@@ -24,9 +25,24 @@ Rules:
 - List fields in the order a person should be asked, top to bottom, left to right.
 - Group multi-part fields (e.g. separate day/month/year boxes) into ONE field of type "date".
 - Ignore instructions, headers, office-use-only sections, and signature boxes.
-- labelSpoken must be a complete, natural question, not a restatement of the label.
+- labelSpoken must be a complete, natural question ending in a question mark, in the
+  form's language (Hindi forms get Hindi questions). Never an instruction like "Please select...".
+- required: default to true for anything the person is expected to fill. Set it to false
+  only when the form marks the blank as optional ("optional", "if any", "if applicable",
+  "यदि कोई हो"), or when it is one of several alternatives (e.g. date of birth OR age).
+
+Field types:
+- "choice": pick exactly ONE of several printed boxes (e.g. Male / Female). List every box
+  in options, using the printed wording.
+- "checkbox" WITH options: a group where SEVERAL boxes may be ticked (e.g. "Information to
+  be updated: Name, Address, Mobile"). List every box in options.
+- "checkbox" WITHOUT options: a single box that is either ticked or not.
+- "number": anything made only of digits, including identifiers like Aadhaar number,
+  mobile number and PIN code. Always add validation for well-known Indian identifiers:
+  Aadhaar "^\\\\d{12}$", mobile "^\\\\d{10}$", PIN code "^\\\\d{6}$". Otherwise validation is null.
 
 Labels:
+- Write labels in the form's language (Hindi forms get Hindi labels, e.g. "जन्म की तिथि").
 - Use the printed wording when it is clear on its own (e.g. "Date of Birth").
 - When the printed text next to a blank is generic ("Provide details", "If yes, specify",
   "Remarks"), write a label that says what the details are about, e.g.
@@ -36,9 +52,9 @@ Labels:
 Conditional sections:
 - Forms often say "If yes, provide details", "If employed, ...", or "If applicable, ...".
   Never ask for those details unconditionally. Instead create TWO fields:
-  1. A gate field BEFORE the details: type "choice", options ["Yes", "No"],
-     required true, with a direct question about the underlying fact
-     (e.g. "Do you have any pending or closed FIR or criminal case?").
+  1. A gate field BEFORE the details: type "choice", options exactly ["Yes", "No"]
+     (in English even on Hindi forms), required true, with a direct question about the
+     underlying fact (e.g. "Do you have any pending or closed FIR or criminal case?").
   2. The details field, with dependsOn { "fieldId": <gate id>, "equals": "Yes" }
      and required true.
 - Word the gate question so that "Yes" is the answer that needs details.
@@ -53,4 +69,4 @@ Repeated information:
 
 Dates:
 - For the date the form is filled or signed, use id "date_of_filling", type "date",
-  and labelSpoken "What date should go on the form?".`;
+  and a labelSpoken asking which date should go on the form (in the form's language).`;

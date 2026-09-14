@@ -27,8 +27,9 @@ async function main() {
       console.log(`${form.title} (${form.detectedLanguage})`);
       for (const f of form.fields) {
         const flags = [f.type, f.required ? 'required' : 'optional'];
-        if (f.options?.length) flags.push(`options: ${f.options.join('/')}`);
+        if (f.options?.length) flags.push(`options: ${f.options.join(' | ')}`);
         if (f.dependsOn) flags.push(`if ${f.dependsOn.fieldId} = ${f.dependsOn.equals}`);
+        if (f.validation?.pattern) flags.push(`pattern ${f.validation.pattern}`);
         console.log(`- ${f.id} [${flags.join(', ')}] ${f.label}\n    → "${f.labelSpoken}"`);
       }
     } catch (err) {
