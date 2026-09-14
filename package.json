@@ -24,7 +24,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "extract:fixtures": "tsx --env-file=.env scripts/extract-fixtures.ts"
+    "extract:fixtures": "tsx --env-file=.env scripts/extract-fixtures.ts",
+    "transcribe:fixtures": "tsx --env-file=.env scripts/transcribe-fixtures.ts"
   },
   "private": true
 }

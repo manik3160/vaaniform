@@ -3,6 +3,8 @@ import { Button, StyleSheet, Text, View } from 'react-native';
 import { useAudioPlayer } from 'expo-audio';
 import { Lang } from '../lib/schema/types';
 import { speak } from '../lib/voice/speak';
+import { Transcript } from '../lib/voice/transcribe';
+import { transcribeRecording } from '../lib/voice/transcribeRecording';
 import { useAnswerRecorder } from '../lib/voice/useAnswerRecorder';
 
 const SAMPLE_QUESTIONS: Record<Lang, string> = {
@@ -14,6 +16,7 @@ export function VoiceTest() {
   const [lang, setLang] = useState<Lang>('hi');
   const [recordingUri, setRecordingUri] = useState<string | null>(null);
   const [status, setStatus] = useState('');
+  const [transcript, setTranscript] = useState<(Transcript & { ms: number }) | null>(null);
   const recorder = useAnswerRecorder();
   const player = useAudioPlayer(null);
 
@@ -37,9 +40,16 @@ export function VoiceTest() {
       ? run('Stopping…', async () => {
           const uri = await recorder.stop();
           setRecordingUri(uri);
-          setStatus('Recorded');
+          setStatus('Transcribing…');
+          const started = Date.now();
+          const result = await transcribeRecording(uri, SAMPLE_QUESTIONS[lang]);
+          setTranscript({ ...result, ms: Date.now() - started });
+          setStatus('Transcribed');
         })
-      : run('Recording… tap Stop when done', recorder.start);
+      : run('Recording… tap Stop when done', async () => {
+          setTranscript(null);
+          await recorder.start();
+        });
 
   const playBack = () => {
     if (!recordingUri) return;
@@ -68,6 +78,12 @@ export function VoiceTest() {
         <Button title="Play back recording" onPress={playBack} />
       )}
       {status !== '' && <Text>{status}</Text>}
+      {transcript && (
+        <Text style={styles.transcript}>
+          {transcript.text === '' ? '(no speech heard)' : `"${transcript.text}"`}
+          {`\nconfidence ${transcript.confidence} · ${(transcript.ms / 1000).toFixed(1)}s`}
+        </Text>
+      )}
     </View>
   );
 }
@@ -82,5 +98,8 @@ const styles = StyleSheet.create({
   },
   title: {
     fontWeight: 'bold',
+  },
+  transcript: {
+    fontSize: 16,
   },
 });

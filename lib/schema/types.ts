@@ -19,7 +19,7 @@ export const FormFieldSchema = z.object({
   label: z.string(),
   labelSpoken: z.string(),
   type: FieldTypeSchema,
-  options: z.array(z.string()).optional(),
+  options: z.array(z.string()).nullish(),
   required: z.boolean(),
   dependsOn: z
     .object({ fieldId: z.string(), equals: z.string() })
