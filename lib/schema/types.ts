@@ -30,11 +30,34 @@ export type FormField = z.infer<typeof FormFieldSchema>;
 
 // Shape the LLM is asked to return: just the form's structure.
 // The app fills in id / sourceImageUri / createdAt afterwards.
-export const LlmExtractionSchema = z.object({
-  title: z.string(),
-  detectedLanguage: LangSchema,
-  fields: z.array(FormFieldSchema),
-});
+export const LlmExtractionSchema = z
+  .object({
+    title: z.string(),
+    detectedLanguage: LangSchema,
+    fields: z.array(FormFieldSchema),
+  })
+  .superRefine((form, ctx) => {
+    form.fields.forEach((field, index) => {
+      if (!field.dependsOn) return;
+      const gateIndex = form.fields.findIndex((f) => f.id === field.dependsOn!.fieldId);
+      if (gateIndex === -1 || gateIndex >= index) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['fields', index, 'dependsOn'],
+          message: `"${field.id}" depends on "${field.dependsOn.fieldId}", which is not an earlier field`,
+        });
+        return;
+      }
+      const gate = form.fields[gateIndex];
+      if (gate.options && !gate.options.includes(field.dependsOn.equals)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['fields', index, 'dependsOn'],
+          message: `"${field.id}" depends on "${gate.id}" = "${field.dependsOn.equals}", which is not one of its options`,
+        });
+      }
+    });
+  });
 export type LlmExtraction = z.infer<typeof LlmExtractionSchema>;
 
 export interface FormSchema extends LlmExtraction {

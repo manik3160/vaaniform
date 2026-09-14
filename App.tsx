@@ -84,7 +84,10 @@ export default function App() {
           </Text>
           {schema.fields.map((field) => (
             <Text key={field.id} style={styles.fieldRow}>
-              [{field.type}{field.required ? ', required' : ''}] {field.label}
+              [{field.type}{field.required ? ', required' : ''}
+              {field.options?.length ? `, ${field.options.join('/')}` : ''}
+              {field.dependsOn ? `, if ${field.dependsOn.fieldId} = ${field.dependsOn.equals}` : ''}]{' '}
+              {field.label}
               {'\n'}  → "{field.labelSpoken}"
             </Text>
           ))}
