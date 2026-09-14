@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { Button, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import * as Speech from 'expo-speech';
+import { VoiceTest } from './components/VoiceTest';
 import { extractFormSchema } from './lib/schema/extractSchema';
 import { FormSchema } from './lib/schema/types';
 
@@ -28,10 +28,6 @@ export default function App() {
     const photo = await cameraRef.current?.takePictureAsync();
     if (photo) setPhotoUri(photo.uri);
     setShowCamera(false);
-  };
-
-  const speakTestSentence = () => {
-    Speech.speak('This is a test of the voice engine.', { language: 'en-US' });
   };
 
   const runExtraction = async () => {
@@ -65,7 +61,7 @@ export default function App() {
       <Button title="Take Photo" onPress={openCamera} />
       {photoUri && <Image source={{ uri: photoUri }} style={styles.preview} />}
 
-      <Button title="Speak Test Sentence" onPress={speakTestSentence} />
+      <VoiceTest />
 
       {photoUri && (
         <Button
