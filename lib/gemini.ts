@@ -1,6 +1,11 @@
-// Tried in order; later models are fallbacks when earlier ones are overloaded.
+// Tried in order; later models are fallbacks when earlier ones are overloaded or out of quota.
 export const DEFAULT_MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash'];
-const RETRYABLE_STATUSES = new Set([429, 500, 503]);
+// For short per-answer calls where latency matters more than depth (~1–2 s in benchmarks).
+// The larger models are last-resort fallbacks: slower, but each model has its own quota.
+export const FAST_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.8-flash'];
+
+// gemini-3.8-flash rejects thinkingLevel "minimal" with a 400.
+const LOWEST_THINKING: Record<string, ThinkingLevel> = { 'gemini-3.8-flash': 'low' };
 
 export type GeminiPart =
   | { text: string }
@@ -17,6 +22,17 @@ function stripCodeFences(text: string): string {
   return fenced ? fenced[1] : trimmed;
 }
 
+function requestBody(parts: GeminiPart[], model: string, thinkingLevel?: ThinkingLevel): string {
+  const level = thinkingLevel === 'minimal' ? LOWEST_THINKING[model] ?? 'minimal' : thinkingLevel;
+  return JSON.stringify({
+    contents: [{ parts }],
+    generationConfig: {
+      response_mime_type: 'application/json',
+      ...(level && { thinkingConfig: { thinkingLevel: level } }),
+    },
+  });
+}
+
 // Platform-independent (plain fetch) so it runs on the phone and in Node scripts.
 export async function generateJson(
   parts: GeminiPart[],
@@ -25,19 +41,13 @@ export async function generateJson(
 ): Promise<unknown> {
   const models = options.models ?? DEFAULT_MODELS;
   const timeoutMs = options.timeoutMs ?? 60000;
-  const body = JSON.stringify({
-    contents: [{ parts }],
-    generationConfig: {
-      response_mime_type: 'application/json',
-      ...(options.thinkingLevel && {
-        thinkingConfig: { thinkingLevel: options.thinkingLevel },
-      }),
-    },
-  });
 
   let response: Response | null = null;
-  let lastError = '';
+  const errors: string[] = [];
+  let quotaExhausted = 0;
+
   outer: for (const model of models) {
+    const body = requestBody(parts, model, options.thinkingLevel);
     for (let attempt = 0; attempt < 2; attempt++) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -52,27 +62,40 @@ export async function generateJson(
           }
         );
       } catch (err) {
-        // Timed out or network failure: don't retry the same model, move to the next one.
+        // Timed out or network failure: move straight to the next model.
         response = null;
-        lastError = controller.signal.aborted
-          ? `${model} → no response within ${timeoutMs / 1000}s`
-          : `${model} → ${err instanceof Error ? err.message : String(err)}`;
+        errors.push(
+          controller.signal.aborted
+            ? `${model}: no response within ${timeoutMs / 1000}s`
+            : `${model}: ${err instanceof Error ? err.message : String(err)}`
+        );
         continue outer;
       } finally {
         clearTimeout(timer);
       }
       if (response.ok) break outer;
 
-      lastError = `${model} → ${response.status}: ${await response.text()}`;
-      if (!RETRYABLE_STATUSES.has(response.status)) {
-        throw new Error(`Gemini API error ${lastError}`);
+      const detail = (await response.text()).slice(0, 300);
+      errors.push(`${model}: ${response.status} ${detail}`);
+      if (response.status === 429) {
+        // Quota is per model, so another model may still have some left. Retrying this one won't help.
+        quotaExhausted++;
+        continue outer;
+      }
+      if (response.status !== 500 && response.status !== 503) {
+        throw new Error(`Gemini API error ${errors[errors.length - 1]}`);
       }
       if (attempt === 0) await sleep(1500);
     }
   }
 
   if (!response?.ok) {
-    throw new Error(`Couldn't get a response from Gemini. Last error: ${lastError}`);
+    if (quotaExhausted === models.length) {
+      throw new Error(
+        'Gemini usage limit reached for every model on this API key (free tier). Try again later or enable billing in Google AI Studio.'
+      );
+    }
+    throw new Error(`Couldn't get a response from Gemini. ${errors.join(' | ')}`);
   }
 
   const data = await response.json();

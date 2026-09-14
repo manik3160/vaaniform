@@ -1,4 +1,5 @@
 import { File } from 'expo-file-system';
+import { requireGeminiKey } from '../apiKey';
 import { extractFromImage } from './gemini';
 import { FormSchema } from './types';
 
@@ -7,15 +8,8 @@ function makeId(): string {
 }
 
 export async function extractFormSchema(photoUri: string): Promise<FormSchema> {
-  const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      'Missing EXPO_PUBLIC_GEMINI_API_KEY. Add it to your .env file (see .env.example).'
-    );
-  }
-
   const base64 = await new File(photoUri).base64();
-  const extraction = await extractFromImage(base64, 'image/jpeg', apiKey);
+  const extraction = await extractFromImage(base64, 'image/jpeg', requireGeminiKey());
 
   return {
     ...extraction,

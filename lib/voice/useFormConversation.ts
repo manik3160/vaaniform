@@ -4,12 +4,13 @@ import {
   Answers,
   MAX_ATTEMPTS_PER_FIELD,
   nextField,
-  parseAnswer,
   PHRASES,
+  pruneInactive,
   retryPrompt,
 } from './conversation';
+import { resolveAnswer } from './parseAnswer';
 import { speak, stopSpeaking } from './speak';
-import { transcribeRecording } from './transcribeRecording';
+import { hearRecording } from './transcribeRecording';
 import { useAnswerRecorder } from './useAnswerRecorder';
 
 export type Phase = 'idle' | 'asking' | 'listening' | 'transcribing' | 'done';
@@ -68,11 +69,11 @@ export function useFormConversation(schema: FormSchema) {
           if (cancelledRef.current) return;
 
           setPhase('transcribing');
-          const transcript = await transcribeRecording(uri, field.labelSpoken);
+          const heard = await hearRecording(uri, field, lang);
           if (cancelledRef.current) return;
-          setLastHeard(transcript);
+          setLastHeard(heard);
 
-          const parsed = parseAnswer(transcript, field);
+          const parsed = resolveAnswer(heard, field, new Date(), heard);
           if (parsed.ok) {
             value = parsed.value;
           } else {
@@ -119,5 +120,22 @@ export function useFormConversation(schema: FormSchema) {
     setPhase('idle');
   };
 
-  return { answers, needsTyping, currentFieldId, phase, lastHeard, micLevel, error, start, stop, reset };
+  /** Typed or corrected answer. Only while the voice loop is stopped; `value` must already be validated. */
+  const setAnswer = (fieldId: string, value: string | null) => {
+    if (runningRef.current) return;
+    setAnswers((prev) => {
+      const next = { ...prev };
+      if (value === null) delete next[fieldId];
+      else next[fieldId] = value;
+      return pruneInactive(schema.fields, next);
+    });
+    setNeedsTyping((prev) => {
+      const next = new Set(prev);
+      next.delete(fieldId);
+      return next;
+    });
+    if (phase === 'done') setPhase('idle');
+  };
+
+  return { answers, needsTyping, currentFieldId, phase, lastHeard, micLevel, error, start, stop, reset, setAnswer };
 }

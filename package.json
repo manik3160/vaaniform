@@ -25,7 +25,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "extract:fixtures": "tsx --env-file=.env scripts/extract-fixtures.ts",
-    "transcribe:fixtures": "tsx --env-file=.env scripts/transcribe-fixtures.ts"
+    "transcribe:fixtures": "tsx --env-file=.env scripts/transcribe-fixtures.ts",
+    "check:answers": "tsx --env-file-if-exists=.env scripts/check-answers.ts"
   },
   "private": true
 }
