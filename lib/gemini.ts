@@ -1,5 +1,6 @@
 // Tried in order; later models are fallbacks when earlier ones are overloaded or out of quota.
-export const DEFAULT_MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash'];
+// flash-lite is last: less thorough on complex forms, but on the free tier it often still has quota.
+export const DEFAULT_MODELS = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'];
 // For short per-answer calls where latency matters more than depth (~1–2 s in benchmarks).
 // The larger models are last-resort fallbacks: slower, but each model has its own quota.
 export const FAST_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.8-flash'];

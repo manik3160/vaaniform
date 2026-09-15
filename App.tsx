@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Button, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 import { FormFiller } from './components/FormFiller';
 import { extractFormSchema } from './lib/schema/extractSchema';
 import { SAMPLE_FORM } from './lib/schema/sampleForm';
@@ -9,7 +10,7 @@ import { FormSchema } from './lib/schema/types';
 export default function App() {
   const [permission, requestPermission] = useCameraPermissions();
   const [showCamera, setShowCamera] = useState(false);
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<{ uri: string; mimeType?: string | null } | null>(null);
   const [schema, setSchema] = useState<FormSchema | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -26,17 +27,27 @@ export default function App() {
   };
 
   const takePhoto = async () => {
-    const photo = await cameraRef.current?.takePictureAsync();
-    if (photo) setPhotoUri(photo.uri);
+    const taken = await cameraRef.current?.takePictureAsync();
+    if (taken) setPhoto({ uri: taken.uri });
     setShowCamera(false);
   };
 
+  const pickFromGallery = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
+    if (result.canceled) return;
+    const asset = result.assets[0];
+    setSchema(null);
+    setStatus('idle');
+    setErrorMessage(null);
+    setPhoto({ uri: asset.uri, mimeType: asset.mimeType });
+  };
+
   const runExtraction = async () => {
-    if (!photoUri) return;
+    if (!photo) return;
     setStatus('loading');
     setErrorMessage(null);
     try {
-      const result = await extractFormSchema(photoUri);
+      const result = await extractFormSchema(photo.uri, photo.mimeType);
       setSchema(result);
       setStatus('idle');
     } catch (err) {
@@ -61,11 +72,12 @@ export default function App() {
 
       <View style={styles.row}>
         <Button title="Take Photo" onPress={openCamera} />
-        <Button title="Try sample form" onPress={() => setSchema(SAMPLE_FORM)} />
+        <Button title="From gallery" onPress={pickFromGallery} />
+        <Button title="Sample form" onPress={() => setSchema(SAMPLE_FORM)} />
       </View>
 
-      {photoUri && <Image source={{ uri: photoUri }} style={styles.preview} />}
-      {photoUri && (
+      {photo && <Image source={{ uri: photo.uri }} style={styles.preview} resizeMode="contain" />}
+      {photo && (
         <Button
           title={status === 'loading' ? 'Reading form…' : 'Read this form'}
           onPress={runExtraction}
