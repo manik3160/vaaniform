@@ -38,12 +38,19 @@ function requestBody(parts: GeminiPart[], model: string, thinkingLevel?: Thinkin
 export async function generateJson(
   parts: GeminiPart[],
   apiKey: string,
-  options: { thinkingLevel?: ThinkingLevel; models?: string[]; timeoutMs?: number } = {}
+  options: {
+    thinkingLevel?: ThinkingLevel;
+    models?: string[];
+    timeoutMs?: number;
+    onAnswered?: (info: { model: string; ms: number }) => void;
+  } = {}
 ): Promise<unknown> {
+  const startedAt = Date.now();
   const models = options.models ?? DEFAULT_MODELS;
   const timeoutMs = options.timeoutMs ?? 60000;
 
   let response: Response | null = null;
+  let answeredBy = '';
   const errors: string[] = [];
   let quotaExhausted = 0;
 
@@ -74,7 +81,10 @@ export async function generateJson(
       } finally {
         clearTimeout(timer);
       }
-      if (response.ok) break outer;
+      if (response.ok) {
+        answeredBy = model;
+        break outer;
+      }
 
       const detail = (await response.text()).slice(0, 300);
       errors.push(`${model}: ${response.status} ${detail}`);
@@ -91,12 +101,12 @@ export async function generateJson(
   }
 
   if (!response?.ok) {
+    // Full per-model details go to the Metro log; the thrown message is shown to the user.
+    console.warn(`[gemini] all models failed: ${errors.join(' | ')}`);
     if (quotaExhausted === models.length) {
-      throw new Error(
-        'Gemini usage limit reached for every model on this API key (free tier). Try again later or enable billing in Google AI Studio.'
-      );
+      throw new Error("Today's free Gemini limit is used up. It resets tomorrow; until then, tap a question to type the answer.");
     }
-    throw new Error(`Couldn't get a response from Gemini. ${errors.join(' | ')}`);
+    throw new Error('Gemini is busy or unreachable right now. Wait a minute and tap Continue, or tap a question to type the answer.');
   }
 
   const data = await response.json();
@@ -110,5 +120,6 @@ export async function generateJson(
     throw new Error('Gemini response had no content (possibly blocked by safety filters).');
   }
 
+  options.onAnswered?.({ model: answeredBy, ms: Date.now() - startedAt });
   return JSON.parse(stripCodeFences(text));
 }

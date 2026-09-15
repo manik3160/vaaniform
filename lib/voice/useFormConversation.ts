@@ -10,15 +10,11 @@ import {
 } from './conversation';
 import { resolveAnswer } from './parseAnswer';
 import { speak, stopSpeaking } from './speak';
+import { HeardAnswer } from './transcribe';
 import { hearRecording } from './transcribeRecording';
 import { useAnswerRecorder } from './useAnswerRecorder';
 
 export type Phase = 'idle' | 'asking' | 'listening' | 'transcribing' | 'done';
-
-export interface Heard {
-  text: string;
-  confidence: number;
-}
 
 // Short gap so the tail of the spoken question isn't picked up as the start of the answer.
 const PAUSE_BEFORE_LISTENING_MS = 300;
@@ -29,7 +25,7 @@ export function useFormConversation(schema: FormSchema) {
   const [needsTyping, setNeedsTyping] = useState<Set<string>>(new Set());
   const [currentFieldId, setCurrentFieldId] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>('idle');
-  const [lastHeard, setLastHeard] = useState<Heard | null>(null);
+  const [lastHeard, setLastHeard] = useState<HeardAnswer | null>(null);
   const [micLevel, setMicLevel] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const cancelledRef = useRef(false);

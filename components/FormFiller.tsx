@@ -46,8 +46,8 @@ export function FormFiller({ schema }: { schema: FormSchema }) {
       </Text>
       {convo.lastHeard && (
         <Text style={styles.heard}>
-          Heard: {convo.lastHeard.text === '' ? '(nothing)' : `"${convo.lastHeard.text}"`} ·{' '}
-          {convo.lastHeard.confidence}
+          Heard: {convo.lastHeard.text === '' ? '(nothing)' : `"${convo.lastHeard.text}"`}
+          {`\nunderstood in ${(convo.lastHeard.ms / 1000).toFixed(1)}s by ${convo.lastHeard.model.replace('gemini-', '')}`}
         </Text>
       )}
       {convo.error && <Text style={styles.error}>{convo.error}</Text>}

@@ -8,7 +8,7 @@ export interface Transcript {
   confidence: number;
 }
 
-export type HeardAnswer = Transcript & LlmValue;
+export type HeardAnswer = Transcript & LlmValue & { model: string; ms: number };
 
 const HeardSchema = z.object({
   text: z.string(),
@@ -50,11 +50,23 @@ export async function hearAnswer(
   apiKey: string,
   today: Date = new Date()
 ): Promise<HeardAnswer> {
+  let timing = { model: '', ms: 0 };
   const json = await generateJson(
     [{ text: buildPrompt(field, lang, today) }, { inline_data: { mime_type: mimeType, data: base64 } }],
     apiKey,
-    { models: FAST_MODELS, thinkingLevel: 'minimal', timeoutMs: 15000 }
+    {
+      models: FAST_MODELS,
+      thinkingLevel: 'minimal',
+      // A healthy fast model answers in ~2 s; waiting longer mostly means it's overloaded, so try the next one.
+      timeoutMs: 8000,
+      onAnswered: (info) => (timing = info),
+    }
   );
   const heard = HeardSchema.parse(json);
-  return { ...heard, text: heard.text.trim(), confidence: Math.min(1, Math.max(0, heard.confidence)) };
+  return {
+    ...heard,
+    ...timing,
+    text: heard.text.trim(),
+    confidence: Math.min(1, Math.max(0, heard.confidence)),
+  };
 }

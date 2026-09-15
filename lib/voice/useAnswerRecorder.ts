@@ -34,8 +34,17 @@ const NOISIEST_FLOOR_DB = -35;
 // Without mic levels we can't detect the end of speech, so record a fixed window instead.
 const FIXED_WINDOW_MS = 8000;
 
+// Mono 16 kHz is what speech recognition needs; ~4x smaller upload than HIGH_QUALITY (stereo 44.1 kHz 128 kbps).
+const SPEECH_RECORDING = {
+  ...RecordingPresets.HIGH_QUALITY,
+  sampleRate: 16000,
+  numberOfChannels: 1,
+  bitRate: 32000,
+  isMeteringEnabled: true,
+};
+
 export function useAnswerRecorder() {
-  const recorder = useAudioRecorder({ ...RecordingPresets.HIGH_QUALITY, isMeteringEnabled: true });
+  const recorder = useAudioRecorder(SPEECH_RECORDING);
   const recorderRef = useRef(recorder);
   recorderRef.current = recorder;
 
@@ -60,7 +69,7 @@ export function useAnswerRecorder() {
   };
 
   const listen = async (options: ListenOptions = {}): Promise<ListenResult> => {
-    const { maxMs = 15000, noSpeechMs = 6000, silenceMs = 1200, shouldCancel, onLevel } = options;
+    const { maxMs = 15000, noSpeechMs = 6000, silenceMs = 900, shouldCancel, onLevel } = options;
     await start();
 
     const startedAt = Date.now();
