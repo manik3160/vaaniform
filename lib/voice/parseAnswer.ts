@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { requireGeminiKey } from '../apiKey';
 import { FAST_MODELS, generateJson } from '../gemini';
 import { FormField, Lang } from '../schema/types';
-import type { Transcript } from './transcribe';
+import type { Transcript } from './engine';
 
 export type FailReason = 'not-heard' | 'not-an-option' | 'unclear';
 export type ParseResult = { ok: true; value: string } | { ok: false; reason: FailReason };

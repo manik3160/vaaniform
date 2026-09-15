@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { FormField, Lang } from '../lib/schema/types';
 import { resolveAnswer } from '../lib/voice/parseAnswer';
-import { hearAnswer } from '../lib/voice/transcribe';
+import { hearAnswer } from '../lib/voice/cloud/hearAnswer';
 
 const TODAY = new Date(2026, 8, 15);
 

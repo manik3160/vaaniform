@@ -8,24 +8,20 @@ import {
   pruneInactive,
   retryPrompt,
 } from './conversation';
-import { resolveAnswer } from './parseAnswer';
-import { speak, stopSpeaking } from './speak';
-import { HeardAnswer } from './transcribe';
-import { hearRecording } from './transcribeRecording';
-import { useAnswerRecorder } from './useAnswerRecorder';
+import type { Heard, VoiceEngine } from './engine';
+import { parseAnswer, resolveAnswer } from './parseAnswer';
 
 export type Phase = 'idle' | 'asking' | 'listening' | 'transcribing' | 'done';
 
 // Short gap so the tail of the spoken question isn't picked up as the start of the answer.
 const PAUSE_BEFORE_LISTENING_MS = 300;
 
-export function useFormConversation(schema: FormSchema) {
-  const recorder = useAnswerRecorder();
+export function useFormConversation(schema: FormSchema, engine: VoiceEngine) {
   const [answers, setAnswers] = useState<Answers>({});
   const [needsTyping, setNeedsTyping] = useState<Set<string>>(new Set());
   const [currentFieldId, setCurrentFieldId] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>('idle');
-  const [lastHeard, setLastHeard] = useState<HeardAnswer | null>(null);
+  const [lastHeard, setLastHeard] = useState<Heard | null>(null);
   const [micLevel, setMicLevel] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const cancelledRef = useRef(false);
@@ -52,24 +48,27 @@ export function useFormConversation(schema: FormSchema) {
 
         for (let attempt = 0; attempt < MAX_ATTEMPTS_PER_FIELD && value === null; attempt++) {
           setPhase('asking');
-          await speak(prompt, lang);
+          await engine.speak(prompt, lang);
           if (cancelledRef.current) return;
 
           await new Promise((r) => setTimeout(r, PAUSE_BEFORE_LISTENING_MS));
           setPhase('listening');
-          const { uri } = await recorder.listen({
+          const heard = await engine.listen(field, lang, {
             shouldCancel: () => cancelledRef.current,
             onLevel: setMicLevel,
+            onSpeechEnded: () => {
+              setMicLevel(null);
+              setPhase('transcribing');
+            },
           });
-          setMicLevel(null);
-          if (cancelledRef.current) return;
-
-          setPhase('transcribing');
-          const heard = await hearRecording(uri, field, lang);
-          if (cancelledRef.current) return;
+          if (!heard || cancelledRef.current) return;
           setLastHeard(heard);
 
-          const parsed = resolveAnswer(heard, field, new Date(), heard);
+          // Engines that already understood the answer skip the extra parsing request.
+          const parsed = heard.understood
+            ? resolveAnswer(heard, field, new Date(), heard.understood)
+            : await parseAnswer(heard, field, lang);
+          if (cancelledRef.current) return;
           if (parsed.ok) {
             value = parsed.value;
           } else {
@@ -88,7 +87,7 @@ export function useFormConversation(schema: FormSchema) {
 
       setCurrentFieldId(null);
       setPhase('done');
-      await speak(PHRASES[lang].done, lang);
+      await engine.speak(PHRASES[lang].done, lang);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setPhase('idle');
@@ -104,7 +103,7 @@ export function useFormConversation(schema: FormSchema) {
 
   const stop = async () => {
     cancelledRef.current = true;
-    await stopSpeaking();
+    await engine.stopSpeaking();
   };
 
   const reset = () => {

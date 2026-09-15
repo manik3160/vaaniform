@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button, Pressable, StyleSheet, Text, View } from 'react-native';
 import { FormSchema } from '../lib/schema/types';
+import { useCloudEngine } from '../lib/voice/cloud/useCloudEngine';
 import { isFieldActive } from '../lib/voice/conversation';
 import { Phase, useFormConversation } from '../lib/voice/useFormConversation';
 import { FieldEditor } from './FieldEditor';
@@ -14,7 +15,8 @@ const PHASE_LABEL: Record<Phase, string> = {
 };
 
 export function FormFiller({ schema }: { schema: FormSchema }) {
-  const convo = useFormConversation(schema);
+  const engine = useCloudEngine();
+  const convo = useFormConversation(schema, engine);
   const [editingId, setEditingId] = useState<string | null>(null);
   const running = convo.phase === 'asking' || convo.phase === 'listening' || convo.phase === 'transcribing';
   const hasAnswers = Object.keys(convo.answers).length > 0;
@@ -47,7 +49,7 @@ export function FormFiller({ schema }: { schema: FormSchema }) {
       {convo.lastHeard && (
         <Text style={styles.heard}>
           Heard: {convo.lastHeard.text === '' ? '(nothing)' : `"${convo.lastHeard.text}"`}
-          {`\nunderstood in ${(convo.lastHeard.ms / 1000).toFixed(1)}s by ${convo.lastHeard.model.replace('gemini-', '')}`}
+          {`\nunderstood in ${(convo.lastHeard.ms / 1000).toFixed(1)}s by ${convo.lastHeard.source.replace('gemini-', '')}`}
         </Text>
       )}
       {convo.error && <Text style={styles.error}>{convo.error}</Text>}

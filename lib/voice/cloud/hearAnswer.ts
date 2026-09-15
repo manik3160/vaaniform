@@ -1,12 +1,8 @@
 import { z } from 'zod';
-import { FAST_MODELS, generateJson } from '../gemini';
-import { FormField, Lang } from '../schema/types';
-import { fieldContext, LlmValue, VALUE_RULES } from './parseAnswer';
-
-export interface Transcript {
-  text: string;
-  confidence: number;
-}
+import { FAST_MODELS, generateJson } from '../../gemini';
+import { FormField, Lang } from '../../schema/types';
+import type { Transcript } from '../engine';
+import { fieldContext, LlmValue, VALUE_RULES } from '../parseAnswer';
 
 export type HeardAnswer = Transcript & LlmValue & { model: string; ms: number };
 

@@ -8,7 +8,7 @@ import {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export interface ListenOptions {
+export interface RecordAnswerOptions {
   /** Hard cap on one answer. */
   maxMs?: number;
   /** Give up if no speech has started by then. */
@@ -19,7 +19,7 @@ export interface ListenOptions {
   onLevel?: (db: number) => void;
 }
 
-export interface ListenResult {
+export interface RecordAnswerResult {
   uri: string;
   heardSpeech: boolean;
   /** False if the platform reported no mic levels, so silence detection could not run. */
@@ -68,7 +68,7 @@ export function useAnswerRecorder() {
     return recorderRef.current.uri;
   };
 
-  const listen = async (options: ListenOptions = {}): Promise<ListenResult> => {
+  const recordAnswer = async (options: RecordAnswerOptions = {}): Promise<RecordAnswerResult> => {
     const { maxMs = 15000, noSpeechMs = 6000, silenceMs = 900, shouldCancel, onLevel } = options;
     await start();
 
@@ -118,5 +118,5 @@ export function useAnswerRecorder() {
     return { uri, heardSpeech, meteringAvailable };
   };
 
-  return { listen };
+  return { recordAnswer };
 }
