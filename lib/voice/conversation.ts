@@ -51,3 +51,28 @@ export function retryPrompt(field: FormField, lang: Lang, reason: FailReason): s
   }
   return `${reason === 'not-heard' ? phrases.didNotCatch : phrases.unclear} ${field.labelSpoken}`;
 }
+
+// ---------------------------------------------------------------- read-back confirmation
+
+export const CONFIRM_PHRASES: Record<Lang, { isThisCorrect: string; allConfirmed: string }> = {
+  hi: {
+    isThisCorrect: 'क्या यह सही है?',
+    allConfirmed: 'सभी जानकारी की पुष्टि हो गई है। अब आप फॉर्म को PDF के रूप में सुरक्षित कर सकते हैं।',
+  },
+  en: {
+    isThisCorrect: 'Is this correct?',
+    allConfirmed: 'All your answers are confirmed. You can now export the form as a PDF.',
+  },
+};
+
+/** A throwaway Yes/No field used to ask "label: value — is this correct?" during read-back. */
+export function makeConfirmField(field: FormField, value: string, lang: Lang): FormField {
+  return {
+    id: `__confirm_${field.id}__`,
+    label: 'Confirm',
+    labelSpoken: `${field.label}: ${value}. ${CONFIRM_PHRASES[lang].isThisCorrect}`,
+    type: 'choice',
+    options: ['Yes', 'No'],
+    required: true,
+  };
+}

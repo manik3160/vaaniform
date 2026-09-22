@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Button, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Button, Pressable, StyleSheet, Text, View } from 'react-native';
+import { exportFormToPdf } from '../lib/export/exportPdf';
 import { FormSchema } from '../lib/schema/types';
 import { useCloudEngine } from '../lib/voice/cloud/useCloudEngine';
 import { isFieldActive } from '../lib/voice/conversation';
@@ -23,8 +24,24 @@ export function FormFiller({ schema }: { schema: FormSchema }) {
   const engine = useOnDevice ? onDeviceEngine : cloudEngine;
   const convo = useFormConversation(schema, engine);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const running = convo.phase === 'asking' || convo.phase === 'listening' || convo.phase === 'transcribing';
   const hasAnswers = Object.keys(convo.answers).length > 0;
+  const needsReview = convo.needsTyping.size > 0 || convo.needsConfirmation.size > 0;
+  const canConfirmManually = hasAnswers && !running && !needsReview && !convo.confirmed;
+
+  const handleExport = async () => {
+    setExportError(null);
+    setExporting(true);
+    try {
+      await exportFormToPdf(schema, convo.answers);
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <View style={styles.box}>
@@ -51,7 +68,17 @@ export function FormFiller({ schema }: { schema: FormSchema }) {
             }}
           />
         )}
-        {!running && hasAnswers && <Button title="Reset" onPress={convo.reset} />}
+        {!running && hasAnswers && (
+          <Button
+            title="Reset"
+            onPress={() =>
+              Alert.alert('Reset form?', 'This clears every answer.', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Reset', style: 'destructive', onPress: convo.reset },
+              ])
+            }
+          />
+        )}
       </View>
 
       <Text>
@@ -94,7 +121,12 @@ export function FormFiller({ schema }: { schema: FormSchema }) {
                 onCancel={() => setEditingId(null)}
               />
             ) : value !== undefined ? (
-              <Text style={styles.value}>{value}</Text>
+              <>
+                <Text style={styles.value}>{value}</Text>
+                {convo.needsConfirmation.has(field.id) && (
+                  <Text style={styles.error}>Not confirmed by voice — tap to review</Text>
+                )}
+              </>
             ) : convo.needsTyping.has(field.id) ? (
               <Text style={styles.error}>Didn't catch it: tap to type</Text>
             ) : (
@@ -103,6 +135,29 @@ export function FormFiller({ schema }: { schema: FormSchema }) {
           </Pressable>
         );
       })}
+
+      {hasAnswers && !running && (
+        <View style={styles.exportBox}>
+          {convo.confirmed ? (
+            <>
+              <Text style={styles.confirmedText}>✓ All answers confirmed</Text>
+              <Button title={exporting ? 'Exporting…' : 'Export as PDF'} onPress={handleExport} disabled={exporting} />
+            </>
+          ) : canConfirmManually ? (
+            <>
+              <Text style={styles.hint}>Review the answers above, then confirm to unlock export.</Text>
+              <Button title="I've reviewed everything — confirm" onPress={convo.confirmManually} />
+            </>
+          ) : (
+            <Text style={styles.hint}>
+              {needsReview
+                ? 'Resolve the flagged answers above before you can export.'
+                : 'Run the voice read-back (Start/Continue) to confirm your answers before exporting.'}
+            </Text>
+          )}
+          {exportError && <Text style={styles.error}>{exportError}</Text>}
+        </View>
+      )}
     </View>
   );
 }
@@ -120,4 +175,6 @@ const styles = StyleSheet.create({
   label: { fontSize: 12, color: '#555' },
   value: { fontSize: 18 },
   placeholder: { fontSize: 18, color: '#aaa' },
+  exportBox: { marginTop: 12, gap: 8, borderTopWidth: 1, borderTopColor: '#ddd', paddingTop: 12 },
+  confirmedText: { color: 'green', fontWeight: 'bold' },
 });

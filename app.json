@@ -47,7 +47,8 @@
           "microphonePermission": "VaaniForm listens to your spoken answers so it can fill in the form for you.",
           "speechRecognitionPermission": "VaaniForm uses speech recognition to understand your spoken answers."
         }
-      ]
+      ],
+      "expo-sharing"
     ]
   }
 }
