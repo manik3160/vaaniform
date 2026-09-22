@@ -3,6 +3,7 @@ import { Button, Pressable, StyleSheet, Text, View } from 'react-native';
 import { FormSchema } from '../lib/schema/types';
 import { useCloudEngine } from '../lib/voice/cloud/useCloudEngine';
 import { isFieldActive } from '../lib/voice/conversation';
+import { useOnDeviceEngine } from '../lib/voice/ondevice/useOnDeviceEngine';
 import { Phase, useFormConversation } from '../lib/voice/useFormConversation';
 import { FieldEditor } from './FieldEditor';
 
@@ -15,7 +16,11 @@ const PHASE_LABEL: Record<Phase, string> = {
 };
 
 export function FormFiller({ schema }: { schema: FormSchema }) {
-  const engine = useCloudEngine();
+  const [useOnDevice, setUseOnDevice] = useState(false);
+  // Both are hooks, so both are always called; we just use one of the two results.
+  const cloudEngine = useCloudEngine();
+  const onDeviceEngine = useOnDeviceEngine();
+  const engine = useOnDevice ? onDeviceEngine : cloudEngine;
   const convo = useFormConversation(schema, engine);
   const [editingId, setEditingId] = useState<string | null>(null);
   const running = convo.phase === 'asking' || convo.phase === 'listening' || convo.phase === 'transcribing';
@@ -26,6 +31,13 @@ export function FormFiller({ schema }: { schema: FormSchema }) {
       <Text style={styles.title}>
         {schema.title} ({schema.detectedLanguage})
       </Text>
+
+      {!running && (
+        <View style={styles.row}>
+          <Button title={useOnDevice ? '✓ On-device' : 'On-device'} onPress={() => setUseOnDevice(true)} />
+          <Button title={!useOnDevice ? '✓ Cloud' : 'Cloud'} onPress={() => setUseOnDevice(false)} />
+        </View>
+      )}
 
       <View style={styles.row}>
         {running ? (

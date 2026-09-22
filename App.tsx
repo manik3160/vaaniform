@@ -3,6 +3,7 @@ import { Button, Image, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { FormFiller } from './components/FormFiller';
+import { OnDeviceSpeechTest } from './components/OnDeviceSpeechTest';
 import { extractFormSchema } from './lib/schema/extractSchema';
 import { SAMPLE_FORM } from './lib/schema/sampleForm';
 import { FormSchema } from './lib/schema/types';
@@ -87,6 +88,8 @@ export default function App() {
       {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
 
       {schema && <FormFiller key={schema.id} schema={schema} />}
+
+      <OnDeviceSpeechTest />
     </ScrollView>
   );
 }

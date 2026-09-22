@@ -118,6 +118,16 @@ export function spokenDigits(text: string, wholeAnswerOnly: boolean): string | n
 
 const TODAY_WORDS = ['today', 'aaj', 'आज'];
 
+// Best-effort cleanup for free-text answers (name/text/address) when there's no network to
+// ask an LLM to do this properly. Only strips clearly-anchored filler; leaves anything else untouched.
+export function stripAnswerFiller(text: string): string {
+  return text
+    .trim()
+    .replace(/^(my\s+name\s+is|my\s+address\s+is|mera\s+naam|hamara\s+naam|मेरा\s+नाम|हमारा\s+नाम|मेरा\s+पता|हमारा\s+पता)\s*/i, '')
+    .replace(/\s*(hai|hain|hoon|hun|है|हैं|हूँ|हूं)[.।]?\s*$/i, '')
+    .trim();
+}
+
 export function parseByRules(text: string, field: FormField, today: Date): string | null {
   const options = field.options ?? [];
 
@@ -199,17 +209,29 @@ export function resolveAnswer(heard: Transcript, field: FormField, today: Date, 
   return valid !== null ? { ok: true, value: valid } : { ok: false, reason: 'unclear' };
 }
 
-/** Text-only path (already-transcribed answers). Voice answers use hearAnswer, which does both in one call. */
+/**
+ * Text-only path (already-transcribed answers). Voice answers use hearAnswer, which does both
+ * in one call, EXCEPT the on-device engine, which only transcribes and comes through here.
+ *
+ * `offline: true` skips the network call entirely (best-effort filler-stripping instead), so an
+ * on-device answer in airplane mode never crashes the loop waiting on an unreachable Gemini.
+ */
 export async function parseAnswer(
   transcript: Transcript,
   field: FormField,
   lang: Lang,
-  today: Date = new Date()
+  today: Date = new Date(),
+  options: { offline?: boolean } = {}
 ): Promise<ParseResult> {
   const text = transcript.text.trim();
   if (!text || transcript.confidence < MIN_CONFIDENCE) return { ok: false, reason: 'not-heard' };
-  if (parseByRules(text, field, today) !== null) {
-    return resolveAnswer(transcript, field, today, { value: null, reason: 'unclear' });
+
+  const byRules = parseByRules(text, field, today);
+  if (byRules !== null) return { ok: true, value: byRules };
+
+  if (options.offline) {
+    const valid = validateValue(field, stripAnswerFiller(text));
+    return valid !== null ? { ok: true, value: valid } : { ok: false, reason: 'unclear' };
   }
 
   const prompt = `You are filling in one field of a paper form from a person's spoken answer.

@@ -67,7 +67,7 @@ export function useFormConversation(schema: FormSchema, engine: VoiceEngine) {
           // Engines that already understood the answer skip the extra parsing request.
           const parsed = heard.understood
             ? resolveAnswer(heard, field, new Date(), heard.understood)
-            : await parseAnswer(heard, field, lang);
+            : await parseAnswer(heard, field, lang, new Date(), { offline: engine.isOffline });
           if (cancelledRef.current) return;
           if (parsed.ok) {
             value = parsed.value;

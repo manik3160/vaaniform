@@ -7,7 +7,8 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.manik3160.vaaniform"
     },
     "android": {
       "adaptiveIcon": {
@@ -38,6 +39,13 @@
         "expo-image-picker",
         {
           "photosPermission": "VaaniForm opens a photo of a form you choose so it can help you fill it in."
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "VaaniForm listens to your spoken answers so it can fill in the form for you.",
+          "speechRecognitionPermission": "VaaniForm uses speech recognition to understand your spoken answers."
         }
       ]
     ]
